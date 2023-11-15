@@ -11,15 +11,50 @@
 typedef uint64_t index_t;
 #include "stackless.h"
 #include "zipf.h"
+#include "nvme.h"
 
 #define N_TH (1)
-#define N_CORO (16)
+#define N_CORO (64)
 #define N_ITEM (1024*1024)
 #define ALIGN_SIZE (64)
 #define TIME_SEC (5)
 
-#define THETA (0.3)
+#define THETA (0.9)
 //#define CHASE (1)
+
+class SPDKNVMeCached {
+public:
+  static void open() {
+  }
+  static inline void prefetch(co_t *co, index_t index) {
+  }
+  static inline index_t read(co_t *co, index_t index) {
+    return 0;
+  }
+  static void close() {
+  }
+};
+
+
+static char rbuf[N_CORO][512];
+class MyNVMe {
+public:
+  static void open() {
+    nvme_init();
+  }
+  static inline void prefetch(co_t *co, index_t index) {
+    uint64_t lba = index * ALIGN_SIZE / 512;
+    co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
+  }
+  static inline bool prefetch_done(co_t *co, index_t index) {
+    return nvme_check(co->rid);
+  }
+  static inline index_t read(co_t *co, index_t index) {
+    return *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
+  }
+  static void close() {
+  }
+};
 
 static char *mmap_base_addr;
 class Mmap {
@@ -27,10 +62,12 @@ public:
   static void open() {
     mmap_base_addr = (char *)malloc(ALIGN_SIZE * N_ITEM);
   }
-  static inline bool prefetch(index_t index) {
-    return false;
+  static inline void prefetch(co_t *co, index_t index) {
   }
-  static inline index_t read(index_t index) {
+  static inline bool prefetch_done(co_t *co, index_t index) {
+    return true;
+  }
+  static inline index_t read(co_t *co, index_t index) {
     return *(index_t *)(mmap_base_addr + index * ALIGN_SIZE);
   }
   static void close() {
@@ -42,10 +79,10 @@ class Nop {
 public:
   static void open() {
   }
-  static inline bool prefetch(index_t index) {
+  static inline bool prefetch(co_t *co, index_t index) {
     return false;
   }
-  static inline index_t read(index_t index) {
+  static inline index_t read(co_t *co, index_t index) {
     return 0;
   }
   static void close() {
@@ -65,19 +102,22 @@ public:
 };
 
 template<class T>
-inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr) {
+inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr, uint64_t &tmp) {
   coBegin(co_work);
   while (*quit == false) {
     iter++;
 #if CHASE
-    if (T::prefetch(co->index))
+    T::prefetch(co, co->index);
+    whlie (!prefetch_done(co, co->index)) {
       coSuspend(co_work);
-    co->index = T::read(co->index);
+    }
+    co->index = T::read(co, co->index);
 #else
     co->index = genr.gen();
-    if (T::prefetch(co->index))
+    T::prefetch(co, co->index);
+    if (!T::prefetch_done(co, co->index))
       coSuspend(co_work);
-    T::read(co->index);
+    tmp += T::read(co, co->index);
 #endif
   }
   coEnd(co_work);
@@ -102,7 +142,7 @@ void setThreadAffinity(int core)
 }
 
 uint64_t g_cnt[N_TH];
-uint64_t g_last[N_TH];
+uint64_t g_tmp[N_TH];
 
 template<class T>
 void worker(int i_th, volatile bool *begin, volatile bool *quit)
@@ -112,11 +152,13 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   Genr genr(i_th);
   int n_done = 0;
   uint64_t iter = 0;
+  uint64_t tmp = 0;
   co_t co[N_CORO];
 
   for (int i_coro=0; i_coro<N_CORO; i_coro++) {
     co[i_coro].done = false;
-    co[i_coro].id = i_coro;
+    co[i_coro].i_th = i_th;
+    co[i_coro].i_coro = i_coro;
     co[i_coro].index = i_coro * N_ITEM / N_CORO;
   }
   while (1) {
@@ -128,7 +170,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   do {
     for (int i_coro=0; i_coro<N_CORO; i_coro++) {
       if (!co[i_coro].done) {
-	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr);
+	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr, tmp);
 	if (coret > 0) {
 	  n_done++;
 	}
@@ -137,9 +179,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   } while (n_done != N_CORO);
 
   g_cnt[i_th] = iter;
-  for (int i_coro=0; i_coro<N_CORO; i_coro++) {
-    g_last[i_th] += co[i_coro].index;
-  }
+  g_tmp[i_th] = tmp;
 }
 
 template<class T>
@@ -164,13 +204,17 @@ void run_test() {
   auto end = std::chrono::steady_clock::now();
     
   uint64_t sum = 0;
-  for (auto i_th=0; i_th<N_TH; i_th++)
+  uint64_t tmp = 0;
+  for (auto i_th=0; i_th<N_TH; i_th++) {
     sum += g_cnt[i_th];
-    
+    tmp += g_tmp[i_th];
+  }
+  
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
   std::cout << "elapsed time: " << elapsed.count() << "ms\n";
   double miops = sum / 1000.0 / elapsed.count();
   std::cout << miops << " M IOPS" << std::endl;
+  std::cout << "tmp = " << tmp << std::endl;
   //std::cout << 1/miops * 1000 << " ns/req" << std::end;
 
   T::close();
@@ -183,7 +227,8 @@ main()
   std::cout << "Using " << N_TH << " threads. " << N_CORO << " contexts/thread. " << std::endl;
   
   std::cout << "Running..." << std::endl;
-  run_test<Mmap>();
+  //run_test<Mmap>();
+  run_test<MyNVMe>();
   //run_test<Nop>();
   std::cout << "Done!" << std::endl;
   exit(0);

@@ -17,8 +17,10 @@ typedef struct {
 } co_work_t;
 
 typedef struct {
-  int id;
+  int i_coro;
+  int i_th;
   bool done;
+  int rid;
   co_work_t co_work;
   index_t index;
 } co_t;

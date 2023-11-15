@@ -1,2 +1,2 @@
 all:
-	g++ -O3 -g main.cc
+	g++ -O3 -g main.cc nvme.cc
