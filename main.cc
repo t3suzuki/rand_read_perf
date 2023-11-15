@@ -6,6 +6,7 @@
 #include <chrono>
 #include <vector>
 #include <thread>
+#include <string.h>
 #include <immintrin.h>
 
 typedef uint64_t index_t;
@@ -14,7 +15,7 @@ typedef uint64_t index_t;
 #include "nvme.h"
 
 #define N_TH (1)
-#define N_CORO (64)
+#define N_CORO (512)
 #define N_ITEM (1024*1024)
 #define ALIGN_SIZE (64)
 #define TIME_SEC (5)
@@ -44,6 +45,7 @@ public:
   }
   static inline void prefetch(co_t *co, index_t index) {
     uint64_t lba = index * ALIGN_SIZE / 512;
+    memset(rbuf[co->i_coro], 0, 512);
     co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
@@ -115,7 +117,7 @@ inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr
 #else
     co->index = genr.gen();
     T::prefetch(co, co->index);
-    if (!T::prefetch_done(co, co->index))
+    while (T::prefetch_done(co, co->index) == 0)
       coSuspend(co_work);
     tmp += T::read(co, co->index);
 #endif
@@ -185,7 +187,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
 template<class T>
 void run_test() {
   T::open();
-  
+
   auto start = std::chrono::steady_clock::now();
   std::vector<std::thread> thv;
   bool begin = false;
@@ -211,6 +213,7 @@ void run_test() {
   }
   
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
+  std::cout << "num ops: " << sum << "\n";
   std::cout << "elapsed time: " << elapsed.count() << "ms\n";
   double miops = sum / 1000.0 / elapsed.count();
   std::cout << miops << " M IOPS" << std::endl;
