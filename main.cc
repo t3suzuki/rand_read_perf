@@ -10,6 +10,7 @@
 
 typedef uint64_t index_t;
 #include "stackless.h"
+#include "zipf.h"
 
 #define N_TH (1)
 #define N_CORO (16)
@@ -17,6 +18,8 @@ typedef uint64_t index_t;
 #define ALIGN_SIZE (64)
 #define TIME_SEC (5)
 
+#define THETA (0.3)
+//#define CHASE (1)
 
 static char *mmap_base_addr;
 class Mmap {
@@ -35,14 +38,47 @@ public:
   }
 };
 
+class Nop {
+public:
+  static void open() {
+  }
+  static inline bool prefetch(index_t index) {
+    return false;
+  }
+  static inline index_t read(index_t index) {
+    return 0;
+  }
+  static void close() {
+  }
+};
+
+class Genr {
+private:
+  struct zipf * zipf;
+public:
+  Genr(int seed) {
+    zipf = zipf_create(N_ITEM, THETA, seed);
+  }
+  inline uint64_t gen() {
+    return zipf_generate(zipf);
+  }
+};
+
 template<class T>
-inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit) {
+inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr) {
   coBegin(co_work);
   while (*quit == false) {
     iter++;
+#if CHASE
     if (T::prefetch(co->index))
       coSuspend(co_work);
     co->index = T::read(co->index);
+#else
+    co->index = genr.gen();
+    if (T::prefetch(co->index))
+      coSuspend(co_work);
+    T::read(co->index);
+#endif
   }
   coEnd(co_work);
   co->done = true;
@@ -72,7 +108,8 @@ template<class T>
 void worker(int i_th, volatile bool *begin, volatile bool *quit)
 {
   setThreadAffinity(i_th);
-  
+
+  Genr genr(i_th);
   int n_done = 0;
   uint64_t iter = 0;
   co_t co[N_CORO];
@@ -91,7 +128,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   do {
     for (int i_coro=0; i_coro<N_CORO; i_coro++) {
       if (!co[i_coro].done) {
-	coret_t coret = co_work<T>(&co[i_coro], iter, quit);
+	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr);
 	if (coret > 0) {
 	  n_done++;
 	}
@@ -133,7 +170,7 @@ void run_test() {
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
   std::cout << "elapsed time: " << elapsed.count() << "ms\n";
   double miops = sum / 1000.0 / elapsed.count();
-  //std::cout << miops << " M IOPS" << std::endl;
+  std::cout << miops << " M IOPS" << std::endl;
   //std::cout << 1/miops * 1000 << " ns/req" << std::end;
 
   T::close();
@@ -147,6 +184,7 @@ main()
   
   std::cout << "Running..." << std::endl;
   run_test<Mmap>();
+  //run_test<Nop>();
   std::cout << "Done!" << std::endl;
   exit(0);
 }
