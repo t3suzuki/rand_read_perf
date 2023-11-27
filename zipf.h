@@ -6,7 +6,7 @@
 
 
 
-#define min(a,b) (((a)<(b))?(a):(b))
+#define MYMIN(a,b) (((a)<(b))?(a):(b))
 
 struct zipf {
 	uint64_t	range;
@@ -36,7 +36,7 @@ zeta(uint64_t range, double theta)
 	/* Cumulate zeta discretely for the first ZIPF_MAX_ZETA_CALC
 	 * entries in the range.
 	 */
-	calc = min(ZIPF_MAX_ZETA_CALC, range);
+	calc = MYMIN(ZIPF_MAX_ZETA_CALC, range);
 	for (i = 0; i < calc; i++) {
 		zetan += zeta_increment(i, theta);
 	}
@@ -51,7 +51,7 @@ zeta(uint64_t range, double theta)
 	 * smaller if necessary at the end of the range.
 	 */
 	while (i < range) {
-		count = min(ZIPF_ZETA_ESTIMATE, range - i);
+		count = MYMIN(ZIPF_ZETA_ESTIMATE, range - i);
 		inc1 = zeta_increment(i, theta);
 		inc2 = zeta_increment(i + count, theta);
 		zetan += (inc1 + inc2) * count / 2;

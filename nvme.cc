@@ -20,7 +20,13 @@
 
 #define BLKSZ (4096)
 
+#if 0
 #define ND (2)
+#define DRIVE_IDS "0000:09:00.0_0000:0a:00.0"
+#else
+#define ND (1)
+#define DRIVE_IDS "0000:09:00.0"
+#endif
 #define N_CORE (1)
 #define NQ (N_CORE+1)
 #define QD (1024)
@@ -451,7 +457,8 @@ __nvme_init(int did, char *pci_addr)
 void
 nvme_init()
 {
-  char *s = getenv("DRIVE_IDS");
+  //char *s = getenv("DRIVE_IDS");
+  char s[] = DRIVE_IDS;
   assert(s);
   printf("ND=%d drive_ids : %s\n", ND, s);
   int i = 0;
