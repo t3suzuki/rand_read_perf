@@ -8,6 +8,7 @@
 #include <thread>
 #include <string.h>
 #include <immintrin.h>
+#include <libcuckoo/cuckoohash_map.hh>
 
 typedef uint64_t index_t;
 #include "stackless.h"
@@ -20,24 +21,50 @@ typedef uint64_t index_t;
 #define ALIGN_SIZE (64)
 #define TIME_SEC (5)
 
-#define THETA (0.9)
+#define THETA (0.3)
 //#define CHASE (1)
 
-class SPDKNVMeCached {
+using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;
+
+static hash_t hashcache;
+static char rbuf[N_CORO][512];
+static char *mmap_base_addr;
+
+class MyNVMeCached {
 public:
   static void open() {
+    nvme_init();
   }
   static inline void prefetch(co_t *co, index_t index) {
+    index_t value;
+    if (hashcache.find(index, value)) {
+      *(index_t *)rbuf[co->i_coro] = value;
+      co->rid = -1;
+    } else {
+      uint64_t lba = index * ALIGN_SIZE / 512;
+      co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
+    }
+  }
+  static inline bool prefetch_done(co_t *co, index_t index) {
+    if (co->rid == -1)
+      return true;
+    else
+      return nvme_check(co->rid);
   }
   static inline index_t read(co_t *co, index_t index) {
-    return 0;
+    if (co->rid == -1) {
+      return *(index_t *)(&rbuf[co->i_coro][0]);
+    } else {
+      index_t v = *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
+      hashcache.insert(index, v);
+      return v;
+    }
   }
   static void close() {
   }
 };
 
 
-static char rbuf[N_CORO][512];
 class MyNVMe {
 public:
   static void open() {
@@ -58,7 +85,6 @@ public:
   }
 };
 
-static char *mmap_base_addr;
 class Mmap {
 public:
   static void open() {
@@ -104,23 +130,28 @@ public:
 };
 
 template<class T>
-inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr, uint64_t &tmp) {
+inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr, uint64_t &tmp, uint64_t &hit) {
   coBegin(co_work);
   while (*quit == false) {
-    iter++;
+    //if (iter < 10000){
+    if (1){
+      iter++;
 #if CHASE
-    T::prefetch(co, co->index);
-    whlie (!prefetch_done(co, co->index)) {
-      coSuspend(co_work);
-    }
-    co->index = T::read(co, co->index);
+      T::prefetch(co, co->index);
+      whlie (!prefetch_done(co, co->index)) {
+	coSuspend(co_work);
+      }
+      co->index = T::read(co, co->index);
 #else
-    co->index = genr.gen();
-    T::prefetch(co, co->index);
-    while (T::prefetch_done(co, co->index) == 0)
-      coSuspend(co_work);
-    tmp += T::read(co, co->index);
+      co->index = genr.gen();
+      T::prefetch(co, co->index);
+      if (co->rid == -1)
+	hit++;
+      while (T::prefetch_done(co, co->index) == 0)
+	coSuspend(co_work);
+      tmp += T::read(co, co->index);
 #endif
+    }
   }
   coEnd(co_work);
   co->done = true;
@@ -145,6 +176,7 @@ void setThreadAffinity(int core)
 
 uint64_t g_cnt[N_TH];
 uint64_t g_tmp[N_TH];
+uint64_t g_hit[N_TH];
 
 template<class T>
 void worker(int i_th, volatile bool *begin, volatile bool *quit)
@@ -155,6 +187,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   int n_done = 0;
   uint64_t iter = 0;
   uint64_t tmp = 0;
+  uint64_t hit = 0;
   co_t co[N_CORO];
 
   for (int i_coro=0; i_coro<N_CORO; i_coro++) {
@@ -172,7 +205,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   do {
     for (int i_coro=0; i_coro<N_CORO; i_coro++) {
       if (!co[i_coro].done) {
-	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr, tmp);
+	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr, tmp, hit);
 	if (coret > 0) {
 	  n_done++;
 	}
@@ -182,6 +215,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
 
   g_cnt[i_th] = iter;
   g_tmp[i_th] = tmp;
+  g_hit[i_th] = hit;
 }
 
 template<class T>
@@ -207,13 +241,16 @@ void run_test() {
     
   uint64_t sum = 0;
   uint64_t tmp = 0;
+  uint64_t hit = 0;
   for (auto i_th=0; i_th<N_TH; i_th++) {
     sum += g_cnt[i_th];
     tmp += g_tmp[i_th];
+    hit += g_hit[i_th];
   }
   
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
   std::cout << "num ops: " << sum << "\n";
+  std::cout << "num hits: " << hit << "\n";
   std::cout << "elapsed time: " << elapsed.count() << "ms\n";
   double miops = sum / 1000.0 / elapsed.count();
   std::cout << miops << " M IOPS" << std::endl;
@@ -232,6 +269,7 @@ main()
   std::cout << "Running..." << std::endl;
   //run_test<Mmap>();
   run_test<MyNVMe>();
+  //run_test<MyNVMeCached>();
   //run_test<Nop>();
   std::cout << "Done!" << std::endl;
   exit(0);
