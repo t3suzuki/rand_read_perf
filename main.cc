@@ -17,10 +17,10 @@ typedef uint64_t index_t;
 
 #define N_TH (1)
 #define N_CORO (512)
-#define N_ITEM (1024*1024*128)
+#define N_ITEM (1024ULL*1024*1024)
 //#define ALIGN_SIZE (64)
 #define ALIGN_SIZE (512)
-#define TIME_SEC (5)
+#define TIME_SEC (20)
 
 #define THETA (0.3)
 //#define CHASE (1)
