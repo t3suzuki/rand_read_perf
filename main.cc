@@ -14,8 +14,8 @@ typedef uint64_t index_t;
 #include "stackless.h"
 #include "zipf.h"
 #include "nvme.h"
+#include "config.h"
 
-#define N_TH (1)
 #define N_CORO (512)
 //#define N_ITEM (1024ULL*1024*1024*16)
 #define N_ITEM (1024ULL*1024*1024*16)
@@ -24,7 +24,6 @@ typedef uint64_t index_t;
 #define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
-#define THETA (0.7)
 //#define CHASE (1)
 
 using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;

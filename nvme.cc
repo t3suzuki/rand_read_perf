@@ -16,18 +16,12 @@
 
 //extern void (*debug_print)(long, long, long);
 
+#include "config.h"
 #include "nvme.h"
 
 #define BLKSZ (4096)
 
-#if 1
-#define ND (4)
-#define DRIVE_IDS "0000:08:00.0_0000:09:00.0_0000:0a:00.0_0000:0b:00.0"
-#else
-#define ND (1)
-#define DRIVE_IDS "0000:09:00.0"
-#endif
-#define N_CORE (1)
+#define N_CORE (N_TH)
 #define NQ (N_CORE+1)
 #define QD (1024)
 #define AQD (8)
