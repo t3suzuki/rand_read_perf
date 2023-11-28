@@ -18,11 +18,12 @@ typedef uint64_t index_t;
 #define N_TH (1)
 #define N_CORO (512)
 #define N_ITEM (1024ULL*1024*1024)
+//#define N_ITEM (1024ULL)
 //#define ALIGN_SIZE (64)
-#define ALIGN_SIZE (512)
+#define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
-#define THETA (0.3)
+#define THETA (0.999)
 //#define CHASE (1)
 
 using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;
@@ -118,8 +119,10 @@ class MyNVMeS3fifo {
 public:
   
   static void open() {
+    const int hashpower = 30;
+    const int size_mb = 4096;
     nvme_init();
-    mycache_init(2048, 20, &cache, &pool);
+    mycache_init(size_mb, hashpower, &cache, &pool);
   }
   static inline void prefetch(co_t *co, index_t index) {
     index_t value;
@@ -356,9 +359,9 @@ main()
   
   std::cout << "Running..." << std::endl;
   //run_test<Mmap>();
-  run_test<MyNVMe>();
+  //run_test<MyNVMe>();
   //run_test<MyNVMeCached>();
-  //run_test<MyNVMeS3fifo>();
+  run_test<MyNVMeS3fifo>();
   //run_test<Nop>();
   std::cout << "Done!" << std::endl;
   exit(0);

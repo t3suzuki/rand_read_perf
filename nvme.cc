@@ -20,7 +20,7 @@
 
 #define BLKSZ (4096)
 
-#if 0
+#if 1
 #define ND (2)
 #define DRIVE_IDS "0000:09:00.0_0000:0a:00.0"
 #else
