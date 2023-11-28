@@ -17,13 +17,14 @@ typedef uint64_t index_t;
 
 #define N_TH (1)
 #define N_CORO (512)
+//#define N_ITEM (1024ULL*1024*1024*16)
 #define N_ITEM (1024ULL*1024*1024*16)
 //#define N_ITEM (1024ULL)
 //#define ALIGN_SIZE (64)
 #define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
-#define THETA (0.3)
+#define THETA (0.7)
 //#define CHASE (1)
 
 using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;
@@ -120,8 +121,8 @@ class MyNVMeS3fifo {
 public:
   
   static void open() {
-    const int hashpower = 30;
-    const int size_mb = 4096;
+    const int hashpower = 21; // >= 20
+    const int size_mb = ALIGN_SIZE << (hashpower - 20);
     printf("MyNVMeS3fifo init\n");
     nvme_init();
     mycache_init(size_mb, hashpower, &cache, &pool);
@@ -350,6 +351,7 @@ void run_test() {
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
   std::cout << "num ops: " << sum << "\n";
   std::cout << "num hits: " << hit << "\n";
+  std::cout << "hit rate: " << hit / (double)sum << "\n";
   std::cout << "elapsed time: " << elapsed.count() << "ms\n";
   double miops = sum / 1000.0 / elapsed.count();
   std::cout << miops << " M IOPS" << std::endl;
