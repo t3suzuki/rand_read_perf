@@ -17,13 +17,13 @@ typedef uint64_t index_t;
 
 #define N_TH (1)
 #define N_CORO (512)
-#define N_ITEM (1024ULL*1024*1024)
+#define N_ITEM (1024ULL*1024*1024*16)
 //#define N_ITEM (1024ULL)
 //#define ALIGN_SIZE (64)
 #define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
-#define THETA (0.999)
+#define THETA (0.3)
 //#define CHASE (1)
 
 using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;
@@ -35,6 +35,7 @@ static char *mmap_base_addr;
 class MyNVMeCached {
 public:
   static void open() {
+    printf("MyNVMeCached init\n");
     nvme_init();
   }
   static inline void prefetch(co_t *co, index_t index) {
@@ -121,6 +122,7 @@ public:
   static void open() {
     const int hashpower = 30;
     const int size_mb = 4096;
+    printf("MyNVMeS3fifo init\n");
     nvme_init();
     mycache_init(size_mb, hashpower, &cache, &pool);
   }
@@ -157,6 +159,7 @@ public:
 class MyNVMe {
 public:
   static void open() {
+    printf("MyNVMe init\n");
     nvme_init();
   }
   static inline void prefetch(co_t *co, index_t index) {
@@ -177,6 +180,7 @@ public:
 class Mmap {
 public:
   static void open() {
+    printf("MMap init\n");
     mmap_base_addr = (char *)malloc(ALIGN_SIZE * N_ITEM);
   }
   static inline void prefetch(co_t *co, index_t index) {
@@ -195,9 +199,13 @@ public:
 class Nop {
 public:
   static void open() {
+    printf("Nop init\n");
   }
   static inline bool prefetch(co_t *co, index_t index) {
     return false;
+  }
+  static inline bool prefetch_done(co_t *co, index_t index) {
+    return true;
   }
   static inline index_t read(co_t *co, index_t index) {
     return 0;
@@ -353,16 +361,33 @@ void run_test() {
 
 
 int
-main()
+main(int argc, char **argv)
 {
   std::cout << "Using " << N_TH << " threads. " << N_CORO << " contexts/thread. " << std::endl;
   
   std::cout << "Running..." << std::endl;
-  //run_test<Mmap>();
-  //run_test<MyNVMe>();
-  //run_test<MyNVMeCached>();
-  run_test<MyNVMeS3fifo>();
-  //run_test<Nop>();
+
+  int mode = 0;
+  if (argc > 1) {
+    mode = atoi(argv[1]);
+  }
+  switch (mode) {
+  case 0:
+    run_test<Nop>();
+    break;
+  case 1:
+    run_test<Mmap>();
+    break;
+  case 2:
+    run_test<MyNVMe>();
+    break;
+  case 3:
+    run_test<MyNVMeCached>();
+    break;
+  case 4:
+    run_test<MyNVMeS3fifo>();
+    break;
+  }
   std::cout << "Done!" << std::endl;
   exit(0);
 }
