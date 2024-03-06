@@ -68,6 +68,7 @@ public:
 };
 
 
+#if ENABLE_S3FIFO
 #include "cachelib/allocator/CacheAllocator.h"
 
 using namespace facebook::cachelib;
@@ -154,6 +155,7 @@ public:
   static void close() {
   }
 };
+#endif // ENABLE_S3FIFO
 
 
 class MyNVMe {
@@ -385,9 +387,11 @@ main(int argc, char **argv)
   case 3:
     run_test<MyNVMeCached>();
     break;
+#if ENABLE_S3FIFO
   case 4:
     run_test<MyNVMeS3fifo>();
     break;
+#endif // ENABLE_S3FIFO
   }
   std::cout << "Done!" << std::endl;
   exit(0);
