@@ -3,6 +3,11 @@
 ** build by "make"
 
 * use S3FIFO.
+** build by cmake
+*** make symblic link to cachelib-sosp23
+*** mkdir build
+*** cd build
+*** cmake .. -DCMAKE_BUILD_TYPE=Release
 
 
 * arguments

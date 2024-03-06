@@ -29,5 +29,7 @@ message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 find_package(cachelib CONFIG REQUIRED)
 find_package(fmt)
 
+add_definitions("-DENABLE_S3FIFO=1")
+
 add_executable(my main.cc nvme.cc)
 target_link_libraries(my cachelib fmt::fmt atomic) 

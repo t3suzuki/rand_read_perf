@@ -1,4 +1,4 @@
 CFLAGS = -I /home/tomoya-s/hashmaps/libcuckoo
 
 all:
-	g++ -O3 -g main.cc nvme.cc $(CFLAGS)
+	g++ -O3 -g main.cc nvme.cc $(CFLAGS) -DENABLE_CUCKOO=1
