@@ -4,3 +4,20 @@
 
 * use S3FIFO.
 
+
+* arguments
+** 0 : Nop
+** 1 : Mmap
+** 2 : MyNVMe
+** 3 : MyNVMeCached (cache using cuckoohash)
+
+* settings
+** see config.h
+*** For MyNVMe, set PCIe bus addr by DRIVE_IDS and number of drives by ND
+*** N_TH : number of pthreads
+*** THETA : zipf parameter
+** see main.c
+*** N_CORO : number of coroutines per pthread
+*** N_ITEM : number of items (dataset size)
+*** ALIGN_SIZE : dataset size = N_ITEM * ALIGN_SIZE
+*** TIME_SEC :
