@@ -15,6 +15,6 @@
 
 #define NLOG2_CACHED (20)
 
-#define ALIGN_SIZE (64ULL)
+#define ITEM_SIZE (64ULL)
 
 #endif // __CONFIG_H__

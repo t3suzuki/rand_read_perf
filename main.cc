@@ -33,7 +33,7 @@ public:
   static void open() {
     printf("MyNVMeCached init\n");
     nvme_init();
-    size_t cache_size = ALIGN_SIZE << NLOG2_CACHED;
+    size_t cache_size = ITEM_SIZE << NLOG2_CACHED;
     hashcache = new HashCache(cache_size);
   }
   static inline void prefetch(co_t *co, index_t index) {
@@ -42,8 +42,8 @@ public:
       *(index_t *)rbuf[co->i_coro] = value;
       co->rid = -1;
     } else {
-      uint64_t lba = index * ALIGN_SIZE / 512;
-      co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
+      uint64_t lba = index * ITEM_SIZE / 512;
+      co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
     }
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
@@ -56,7 +56,7 @@ public:
     if (co->rid == -1) {
       return *(index_t *)(&rbuf[co->i_coro][0]);
     } else {
-      index_t v = *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
+      index_t v = *(index_t *)(&rbuf[co->i_coro][index * ITEM_SIZE % 512]);
       hashcache->insert(index, v);
       return v;
     }
@@ -99,7 +99,7 @@ class MyNVMeS3fifo {
   static inline int cache_lookup(key_t key, value_t &value) {
     Cache::ReadHandle item_handle = cache->find(gen_strkey(key));
     if (item_handle) {
-      assert(item_handle->getSize() == ALIGN_SIZE);
+      assert(item_handle->getSize() == ITEM_SIZE);
       const char *data = reinterpret_cast<const char *>(item_handle->getMemory());
       return 1; // hit
     } else {
@@ -107,7 +107,7 @@ class MyNVMeS3fifo {
     }
   }
   static inline bool cache_set(key_t key, value_t value) {
-    Cache::WriteHandle item_handle = cache->allocate(pool, gen_strkey(key), ALIGN_SIZE);
+    Cache::WriteHandle item_handle = cache->allocate(pool, gen_strkey(key), ITEM_SIZE);
     if (item_handle == nullptr || item_handle->getMemory() == nullptr) {
       return 1;
     }
@@ -119,7 +119,7 @@ public:
   
   static void open() {
     const int hashpower = 21; // >= 20
-    const int size_mb = ALIGN_SIZE << (hashpower - 20);
+    const int size_mb = ITEM_SIZE << (hashpower - 20);
     printf("MyNVMeS3fifo init\n");
     nvme_init();
     mycache_init(size_mb, hashpower, &cache, &pool);
@@ -130,8 +130,8 @@ public:
       *(index_t *)rbuf[co->i_coro] = value;
       co->rid = -1;
     } else {
-      uint64_t lba = index * ALIGN_SIZE / 512;
-      co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
+      uint64_t lba = index * ITEM_SIZE / 512;
+      co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
     }
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
@@ -144,7 +144,7 @@ public:
     if (co->rid == -1) {
       return *(index_t *)(&rbuf[co->i_coro][0]);
     } else {
-      index_t v = *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
+      index_t v = *(index_t *)(&rbuf[co->i_coro][index * ITEM_SIZE % 512]);
       cache_set(index, v);
       return v;
     }
@@ -162,15 +162,15 @@ public:
     nvme_init();
   }
   static inline void prefetch(co_t *co, index_t index) {
-    uint64_t lba = index * ALIGN_SIZE / 512;
+    uint64_t lba = index * ITEM_SIZE / 512;
     //memset(rbuf[co->i_coro], 0, 512);
-    co->rid = nvme_read_req(lba, 1, co->i_th, ALIGN_SIZE, rbuf[co->i_coro]);
+    co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
     return nvme_check(co->rid);
   }
   static inline index_t read(co_t *co, index_t index) {
-    return *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
+    return *(index_t *)(&rbuf[co->i_coro][index * ITEM_SIZE % 512]);
   }
   static void close() {
   }
@@ -180,7 +180,7 @@ class Mmap {
 public:
   static void open() {
     printf("MMap init\n");
-    mmap_base_addr = (char *)malloc(ALIGN_SIZE * N_ITEM);
+    mmap_base_addr = (char *)malloc(ITEM_SIZE * N_ITEM);
   }
   static inline void prefetch(co_t *co, index_t index) {
   }
@@ -188,7 +188,7 @@ public:
     return true;
   }
   static inline index_t read(co_t *co, index_t index) {
-    return *(index_t *)(mmap_base_addr + index * ALIGN_SIZE);
+    return *(index_t *)(mmap_base_addr + index * ITEM_SIZE);
   }
   static void close() {
     free(mmap_base_addr);
