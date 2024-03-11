@@ -2,6 +2,7 @@
 
 #include <libcuckoo/cuckoohash_map.hh>
 #include <sys/mman.h>
+#include "config.h"
 
 void *
 my_alloc(size_t sz)
@@ -18,10 +19,14 @@ my_alloc(size_t sz)
 
 #define N_RWLOCKS (256)
 
+typedef struct {
+  uint64_t dummy[ITEM_SIZE / sizeof(uint64_t)];
+} val_t;
+
 class HashCache {
   using key_t = uint64_t;
-  using val_t = uint64_t;
   using index_t = uint64_t;
+  using item_t = uint64_t;
   using hash_t = libcuckoo::cuckoohash_map<key_t, index_t>;
   hash_t *hash;
   val_t *val_log;
@@ -45,24 +50,29 @@ public:
       pthread_rwlock_init(&rwlocks[i], NULL);
     }
   }
-  void insert(key_t key, val_t val) {
+  void insert(key_t key, item_t val) {
     index_t index = __sync_fetch_and_add(&cur_index, 1) % n_key;
     key_t old_key = key_log[index];
     key_log[index] = invalid_key;
     hash->erase(old_key);
     hash->insert(key, index);
+    pthread_rwlock_wrlock(&rwlocks[index % N_RWLOCKS]);
     key_log[index] = key;
-    val_log[index] = val;
+    val_log[index].dummy[0] = val;
+    pthread_rwlock_unlock(&rwlocks[index % N_RWLOCKS]);
   }
-  bool lookup(key_t key, val_t &val) {
+  bool lookup(key_t key, item_t &val) {
     index_t index;
   retry:
     bool found = hash->find(key, index);
     if (found) {
+      pthread_rwlock_rdlock(&rwlocks[index % N_RWLOCKS]);
       if (key == key_log[index]) {
-	val = val_log[index];
+	val = val_log[index].dummy[0];
+	pthread_rwlock_unlock(&rwlocks[index % N_RWLOCKS]);
 	return true;
       } else {
+	pthread_rwlock_unlock(&rwlocks[index % N_RWLOCKS]);
 	goto retry;
       }
     } else {

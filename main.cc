@@ -18,7 +18,9 @@ typedef uint64_t index_t;
 #include "config.h"
 
 #define N_CORO (512)
-#define N_ITEM (1024ULL*1024*1024*16)
+//#define N_ITEM (1024ULL*1024*1024*16)
+#define N_ITEM (1024ULL*1024*16)
+#define WARMUP_SEC (0)
 #define TIME_SEC (20)
 
 //#define CHASE (1)
@@ -241,13 +243,21 @@ public:
 };
 #endif
 
+uint64_t g_cnt[N_TH][64];
+uint64_t g_tmp[N_TH];
+uint64_t g_hit[N_TH][64];
+uint64_t prev_cnt[N_TH];
+uint64_t prev_hit[N_TH];
+bool warmup;
+
 template<class T>
-inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr, uint64_t &tmp, uint64_t &hit) {
+inline coret_t co_work(co_t *co, int i_th, volatile bool *quit, Genr &genr, uint64_t &tmp) {
   coBegin(co_work);
   while (*quit == false) {
     //if (iter < 10000){
     if (1){
-      iter++;
+      if (!warmup)
+	g_cnt[i_th][0]++;
 #if CHASE
       T::prefetch(co, co->index);
       whlie (!prefetch_done(co, co->index)) {
@@ -258,7 +268,8 @@ inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr
       co->index = genr.gen();
       T::prefetch(co, co->index);
       if (co->rid == -1)
-	hit++;
+	if (!warmup)
+	  g_hit[i_th][0]++;
       else {
 	while (T::prefetch_done(co, co->index) == 0)
 	  coSuspend(co_work);
@@ -288,10 +299,6 @@ void setThreadAffinity(int core)
 #endif
 }
 
-uint64_t g_cnt[N_TH];
-uint64_t g_tmp[N_TH];
-uint64_t g_hit[N_TH];
-
 template<class T>
 void worker(int i_th, volatile bool *begin, volatile bool *quit)
 {
@@ -299,9 +306,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
 
   Genr genr(i_th);
   int n_done = 0;
-  uint64_t iter = 0;
   uint64_t tmp = 0;
-  uint64_t hit = 0;
   co_t co[N_CORO];
 
   for (int i_coro=0; i_coro<N_CORO; i_coro++) {
@@ -319,7 +324,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   do {
     for (int i_coro=0; i_coro<N_CORO; i_coro++) {
       if (!co[i_coro].done) {
-	coret_t coret = co_work<T>(&co[i_coro], iter, quit, genr, tmp, hit);
+	coret_t coret = co_work<T>(&co[i_coro], i_th, quit, genr, tmp);
 	if (coret > 0) {
 	  n_done++;
 	}
@@ -327,9 +332,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
     }
   } while (n_done != N_CORO);
 
-  g_cnt[i_th] = iter;
   g_tmp[i_th] = tmp;
-  g_hit[i_th] = hit;
 }
 
 template<class T>
@@ -344,9 +347,26 @@ void run_test() {
     thv.emplace_back(worker<T>, i_th, &begin, &quit);
     
   begin = true;
+  warmup = true;
+  for (auto i=1; i<=WARMUP_SEC; i++) {
+    sleep(1);
+    printf("WarmUp %d/%d\n", i, WARMUP_SEC);
+  }
+  warmup = false;
   for (auto i=1; i<=TIME_SEC; i++) {
     sleep(1);
-    printf("Elapsed %d/%d\n", i, TIME_SEC);
+    uint64_t sum = 0;
+    uint64_t hit = 0;
+    for (auto i_th=0; i_th<N_TH; i_th++) {
+      uint64_t cur_cnt = g_cnt[i_th][0];
+      uint64_t cur_hit = g_hit[i_th][0];
+      sum += cur_cnt - prev_cnt[i_th];
+      hit += cur_hit - prev_hit[i_th];
+      printf("%lu %lu %lu %lu\n", cur_cnt, cur_hit, prev_cnt[i_th], prev_hit[i_th]);
+      prev_cnt[i_th] = cur_cnt;
+      prev_hit[i_th] = cur_hit;
+    }
+    printf("Elapsed %d/%d, hit rate %.4f %lu %lu\n", i, TIME_SEC, (double) hit / sum, hit, sum);
   }
   quit = true;
   for (auto &th: thv)
@@ -357,9 +377,9 @@ void run_test() {
   uint64_t tmp = 0;
   uint64_t hit = 0;
   for (auto i_th=0; i_th<N_TH; i_th++) {
-    sum += g_cnt[i_th];
+    sum += g_cnt[i_th][0];
     tmp += g_tmp[i_th];
-    hit += g_hit[i_th];
+    hit += g_hit[i_th][0];
   }
   
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start);
