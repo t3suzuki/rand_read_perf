@@ -11,6 +11,7 @@
 
 #define N_TH (1)
 
+#define URAND (1)
 #define THETA (0.3)
 
 #define NLOG2_CACHED (20)

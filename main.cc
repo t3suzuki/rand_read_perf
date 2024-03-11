@@ -6,6 +6,7 @@
 #include <chrono>
 #include <vector>
 #include <thread>
+#include <random>
 #include <string.h>
 #include <immintrin.h>
 #include "hashcache.h"
@@ -213,6 +214,20 @@ public:
   }
 };
 
+#if URAND
+class Genr {
+private:
+  std::mt19937_64 *mt;
+  std::uniform_int_distribution<unsigned long long> dis;
+public:
+  Genr(int seed) {
+    mt = new std::mt19937_64(seed);
+  }
+  inline uint64_t gen() {
+    return dis(*mt) % N_ITEM;
+  }
+};
+#else
 class Genr {
 private:
   struct zipf * zipf;
@@ -224,6 +239,7 @@ public:
     return zipf_generate(zipf);
   }
 };
+#endif
 
 template<class T>
 inline coret_t co_work(co_t *co, uint64_t &iter, volatile bool *quit, Genr &genr, uint64_t &tmp, uint64_t &hit) {
