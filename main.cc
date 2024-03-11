@@ -18,7 +18,6 @@ typedef uint64_t index_t;
 
 #define N_CORO (512)
 #define N_ITEM (1024ULL*1024*1024*16)
-#define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
 //#define CHASE (1)
@@ -34,10 +33,12 @@ public:
   static void open() {
     printf("MyNVMeCached init\n");
     nvme_init();
+    size_t cache_size = ALIGN_SIZE << NLOG2_CACHED;
+    hashcache = new HashCache(cache_size);
   }
   static inline void prefetch(co_t *co, index_t index) {
     index_t value;
-    if (hashcache.find(index, value)) {
+    if (hashcache->lookup(index, value)) {
       *(index_t *)rbuf[co->i_coro] = value;
       co->rid = -1;
     } else {
@@ -56,7 +57,7 @@ public:
       return *(index_t *)(&rbuf[co->i_coro][0]);
     } else {
       index_t v = *(index_t *)(&rbuf[co->i_coro][index * ALIGN_SIZE % 512]);
-      hashcache.insert(index, v);
+      hashcache->insert(index, v);
       return v;
     }
   }
@@ -380,11 +381,9 @@ main(int argc, char **argv)
   case 2:
     run_test<MyNVMe>();
     break;
-#if ENABLE_CUCKOO
   case 3:
     run_test<MyNVMeCached>();
     break;
-#endif
 #if ENABLE_S3FIFO
   case 4:
     run_test<MyNVMeS3fifo>();
