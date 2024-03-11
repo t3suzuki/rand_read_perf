@@ -8,10 +8,7 @@
 #include <thread>
 #include <string.h>
 #include <immintrin.h>
-
-#if ENABLE_CUCKOO
-#include <libcuckoo/cuckoohash_map.hh>
-#endif
+#include "hashcache.h"
 
 typedef uint64_t index_t;
 #include "stackless.h"
@@ -20,10 +17,7 @@ typedef uint64_t index_t;
 #include "config.h"
 
 #define N_CORO (512)
-//#define N_ITEM (1024ULL*1024*1024*16)
 #define N_ITEM (1024ULL*1024*1024*16)
-//#define N_ITEM (1024ULL)
-//#define ALIGN_SIZE (64)
 #define ALIGN_SIZE (64)
 #define TIME_SEC (20)
 
@@ -33,10 +27,7 @@ static char rbuf[N_CORO][512];
 static char *mmap_base_addr;
 
 
-#if ENABLE_CUCKOO
-using hash_t = libcuckoo::cuckoohash_map<index_t, index_t>;
-
-static hash_t hashcache;
+HashCache *hashcache;
 
 class MyNVMeCached {
 public:
@@ -72,7 +63,6 @@ public:
   static void close() {
   }
 };
-#endif // ENABLE_CUCKOO
 
 #if ENABLE_S3FIFO
 #include "cachelib/allocator/CacheAllocator.h"
