@@ -14,9 +14,12 @@
 #define URAND (1)
 #define THETA (0.1)
 
-#define NLOG2_CACHED (20)
+#define NLOG2_CACHED (25)
 
 //#define ITEM_SIZE (64ULL)
 #define ITEM_SIZE (512ULL)
+
+#define WARMUP_SEC (0)
+#define TIME_SEC (180)
 
 #endif // __CONFIG_H__

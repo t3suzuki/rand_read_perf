@@ -8,11 +8,12 @@ void *
 my_alloc(size_t sz)
 {
 #if USE_HUGPAGE
-  printf("hugepages %f MB\n", sz / 1024.0 / 1024.0);
+  printf("hugepages %.3f MB\n", sz / 1024.0 / 1024.0);
   void *p = mmap(0, sz, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
   assert(p != MAP_FAILED);
   return p;
 #else
+  printf("[Warning] not use hugepage %.3f MB. We should use hugepage for better performance!!\n", sz / 1024.0 / 1024.0);
   return malloc(sz);
 #endif
 }
