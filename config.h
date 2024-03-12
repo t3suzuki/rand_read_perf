@@ -9,7 +9,7 @@
 #define DRIVE_IDS "0000:02:00.0"
 #endif
 
-#define N_TH (1)
+#define N_TH (2)
 
 #define URAND (1)
 #define THETA (0.1)

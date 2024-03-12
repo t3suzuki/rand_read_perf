@@ -20,8 +20,6 @@ typedef uint64_t index_t;
 #define N_CORO (512)
 //#define N_ITEM (1024ULL*1024*1024*16)
 #define N_ITEM (1024ULL*1024*64)
-#define WARMUP_SEC (0)
-#define TIME_SEC (20)
 
 //#define CHASE (1)
 
@@ -121,9 +119,9 @@ class MyNVMeS3fifo {
 public:
   
   static void open() {
-    const int hashpower = 21; // >= 20
+    const int hashpower = NLOG2_CACHED; // >= 20
     const int size_mb = ITEM_SIZE << (hashpower - 20);
-    printf("MyNVMeS3fifo init\n");
+    printf("MyNVMeS3fifo init: cache size %d MB\n", size_mb);
     nvme_init();
     mycache_init(size_mb, hashpower, &cache, &pool);
   }
