@@ -1,4 +1,13 @@
+
+
+N_TH ?= 1
+URAND ?= 1
+THETA ?= 0
+
 CFLAGS = -O3 -g
+CFLAGS += -DN_TH=$(N_TH)
+CFLAGS += -DURAND=$(URAND)
+CFLAGS += -DTHETA=$(THETA)
 
 all:
 	g++ $(CFLAGS) main.cc nvme.cc

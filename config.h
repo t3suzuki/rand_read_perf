@@ -9,17 +9,23 @@
 #define DRIVE_IDS "0000:02:00.0"
 #endif
 
-#define N_TH (2)
+//#define N_TH (2)
 
-#define URAND (1)
-#define THETA (0.1)
+//#define URAND (1)
+//#define THETA (0.1)
 
 #define NLOG2_CACHED (25)
 
 //#define ITEM_SIZE (64ULL)
-#define ITEM_SIZE (512ULL)
+#define ITEM_SIZE (512ULL) // should be <= 512
 
-#define WARMUP_SEC (0)
+#if 1
+#define WARMUP_SEC (60)
 #define TIME_SEC (180)
+#else
+#define WARMUP_SEC (3)
+#define TIME_SEC (7)
+#endif
+
 
 #endif // __CONFIG_H__

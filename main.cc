@@ -18,8 +18,7 @@ typedef uint64_t index_t;
 #include "config.h"
 
 #define N_CORO (512)
-//#define N_ITEM (1024ULL*1024*1024*16)
-#define N_ITEM (1024ULL*1024*64)
+#define N_ITEM (1024ULL*1024*32)
 
 //#define CHASE (1)
 
@@ -44,7 +43,7 @@ public:
       co->rid = -1;
     } else {
       uint64_t lba = index * ITEM_SIZE / 512;
-      co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
+      co->rid = nvme_read_req(lba, 1, co->i_th, 512, rbuf[co->i_coro]);
     }
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
@@ -132,7 +131,7 @@ public:
       co->rid = -1;
     } else {
       uint64_t lba = index * ITEM_SIZE / 512;
-      co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
+      co->rid = nvme_read_req(lba, 1, co->i_th, 512, rbuf[co->i_coro]);
     }
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
@@ -165,7 +164,7 @@ public:
   static inline void prefetch(co_t *co, index_t index) {
     uint64_t lba = index * ITEM_SIZE / 512;
     //memset(rbuf[co->i_coro], 0, 512);
-    co->rid = nvme_read_req(lba, 1, co->i_th, ITEM_SIZE, rbuf[co->i_coro]);
+    co->rid = nvme_read_req(lba, 1, co->i_th, 512, rbuf[co->i_coro]);
   }
   static inline bool prefetch_done(co_t *co, index_t index) {
     return nvme_check(co->rid);
