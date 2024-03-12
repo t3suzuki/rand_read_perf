@@ -19,7 +19,7 @@ typedef uint64_t index_t;
 
 #define N_CORO (512)
 //#define N_ITEM (1024ULL*1024*1024*16)
-#define N_ITEM (1024ULL*1024*16)
+#define N_ITEM (1024ULL*1024*64)
 #define WARMUP_SEC (0)
 #define TIME_SEC (20)
 

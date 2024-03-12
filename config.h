@@ -1,9 +1,9 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#if 0
+#if 1
 #define ND (4)
-#define DRIVE_IDS "0000:08:00.0_0000:09:00.0_0000:0a:00.0_0000:0b:00.0"
+#define DRIVE_IDS "0000:02:00.0_0000:03:00.0_0000:04:00.0_0000:05:00.0"
 #else
 #define ND (1)
 #define DRIVE_IDS "0000:02:00.0"
@@ -12,10 +12,11 @@
 #define N_TH (1)
 
 #define URAND (1)
-#define THETA (0.3)
+#define THETA (0.1)
 
 #define NLOG2_CACHED (20)
 
-#define ITEM_SIZE (64ULL)
+//#define ITEM_SIZE (64ULL)
+#define ITEM_SIZE (512ULL)
 
 #endif // __CONFIG_H__
