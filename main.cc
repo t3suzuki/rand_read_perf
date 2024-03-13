@@ -336,7 +336,6 @@ template<class T>
 void run_test() {
   T::open();
 
-  auto start = std::chrono::steady_clock::now();
   std::vector<std::thread> thv;
   bool begin = false;
   bool quit = false;
@@ -349,7 +348,10 @@ void run_test() {
     sleep(1);
     printf("WarmUp %d/%d\n", i, WARMUP_SEC);
   }
+  
+  auto start = std::chrono::steady_clock::now();
   warmup = false;
+  
   for (auto i=1; i<=TIME_SEC; i++) {
     sleep(1);
     uint64_t sum = 0;
