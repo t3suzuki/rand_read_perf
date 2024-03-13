@@ -284,7 +284,7 @@ inline coret_t co_work(co_t *co, int i_th, volatile bool *quit, Genr &genr, uint
 
 void setThreadAffinity(int core)
 {
-#if 0
+#if 1
   printf("[Note] use core %d\n", core);
   cpu_set_t cpu_set;
   CPU_ZERO(&cpu_set);

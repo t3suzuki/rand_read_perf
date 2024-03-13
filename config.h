@@ -14,13 +14,13 @@
 //#define URAND (1)
 //#define THETA (0.1)
 
-#define NLOG2_CACHED (24)
+#define NLOG2_CACHED (22)
 
 //#define ITEM_SIZE (64ULL)
 #define ITEM_SIZE (512ULL) // should be <= 512
 #define N_ITEM (1024ULL*1024*32)
 
-#if 0 // long exec
+#if 1 // long exec
 #define WARMUP_SEC (60)
 #define TIME_SEC (180)
 #else // short exec

@@ -31,5 +31,17 @@ find_package(fmt)
 
 add_definitions("-DENABLE_S3FIFO=1")
 
+if (DEFINED N_TH)
+  add_definitions("-DN_TH=${N_TH}")
+endif()
+
+if (DEFINED URAND)
+  add_definitions("-DURAND=${URAND}")
+endif()
+
+if (DEFINED THETA)
+  add_definitions("-DTHETA=${THETA}")
+endif()
+
 add_executable(my main.cc nvme.cc)
 target_link_libraries(my cachelib fmt::fmt atomic) 
