@@ -1,7 +1,7 @@
 
 
 N_TH ?= 1
-URAND ?= 0
+URAND ?= 1
 THETA ?= 0.99
 
 CFLAGS = -O3 -g

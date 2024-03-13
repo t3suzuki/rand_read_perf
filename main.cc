@@ -397,7 +397,14 @@ void run_test() {
 int
 main(int argc, char **argv)
 {
-  std::cout << "Using " << N_TH << " threads. " << N_CORO << " contexts/thread. " << std::endl;
+  std::cout << " N_TH = " << N_TH;
+  std::cout << " N_CORO = " << N_CORO;
+  if (URAND)
+    std::cout << " URAND = " << URAND;
+  else
+    std::cout << " THETA = " << THETA;
+  
+  std::cout << std::endl;
   
   std::cout << "Running..." << std::endl;
 
