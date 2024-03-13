@@ -1,8 +1,8 @@
 
 
 N_TH ?= 1
-URAND ?= 1
-THETA ?= 0
+URAND ?= 0
+THETA ?= 0.99
 
 CFLAGS = -O3 -g
 CFLAGS += -DN_TH=$(N_TH)
@@ -10,7 +10,9 @@ CFLAGS += -DURAND=$(URAND)
 CFLAGS += -DTHETA=$(THETA)
 
 all:
-	g++ $(CFLAGS) main.cc nvme.cc
+	g++ $(CFLAGS) main.cc nvme.cc -o my
+write:
+	g++ $(CFLAGS) write.cc nvme.cc -o write
 
 
 setup:
@@ -22,3 +24,6 @@ reset:
 	echo $(PCIADDR) | sudo tee -a /sys/bus/pci/devices/$(PCIADDR)/driver/unbind
 	echo nvme | sudo tee -a /sys/bus/pci/devices/$(PCIADDR)/driver_override
 	echo $(PCIADDR) | sudo tee -a /sys/bus/pci/drivers_probe
+
+clean:
+	rm -f write *.o my *~

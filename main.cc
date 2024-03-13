@@ -18,7 +18,6 @@ typedef uint64_t index_t;
 #include "config.h"
 
 #define N_CORO (512)
-#define N_ITEM (1024ULL*1024*32)
 
 //#define CHASE (1)
 

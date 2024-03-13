@@ -242,7 +242,7 @@ public:
       clock_gettime(CLOCK_MONOTONIC, &tsc);
       double cur = tsc.tv_sec + tsc.tv_nsec * 1e-9;
       double delta = cur - stat_read_lasttime;
-      printf("n_th %d, delta=%f, %f KIOPS\n", _qid, delta, 1024*1024/delta/1000);
+      printf("%p n_th %d, delta=%f, %f KIOPS\n", this, _qid, delta, 1024*1024/delta/1000);
       stat_read_lasttime = cur;
     }
   }

@@ -18,6 +18,7 @@
 
 //#define ITEM_SIZE (64ULL)
 #define ITEM_SIZE (512ULL) // should be <= 512
+#define N_ITEM (1024ULL*1024*32)
 
 #if 1
 #define WARMUP_SEC (60)
