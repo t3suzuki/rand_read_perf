@@ -1,11 +1,11 @@
 
 
-N_TH ?= 1
-URAND ?= 1
+N_CORE ?= 1
+URAND ?= 0
 THETA ?= 0.99
 
 CFLAGS = -O3 -g
-CFLAGS += -DN_TH=$(N_TH)
+CFLAGS += -DN_CORE=$(N_CORE)
 CFLAGS += -DURAND=$(URAND)
 CFLAGS += -DTHETA=$(THETA)
 

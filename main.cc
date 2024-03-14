@@ -17,11 +17,11 @@ typedef uint64_t index_t;
 #include "nvme.h"
 #include "config.h"
 
-#define N_CORO (512)
+#define N_CTX (512)
 
 //#define CHASE (1)
 
-static char rbuf[N_CORO][512];
+static char rbuf[N_CTX][512];
 static char *mmap_base_addr;
 
 
@@ -178,8 +178,15 @@ public:
 class Mmap {
 public:
   static void open() {
+    char dummy_item[ITEM_SIZE];
     printf("MMap init\n");
     mmap_base_addr = (char *)malloc(ITEM_SIZE * N_ITEM);
+    for (int i=0; i<ITEM_SIZE; i++) {
+      dummy_item[i] = rand() & 0xff;
+    }
+    for (uint64_t i=0; i<N_ITEM; i++) {
+      memcpy(mmap_base_addr + i*ITEM_SIZE, dummy_item, ITEM_SIZE);
+    }
   }
   static inline void prefetch(co_t *co, index_t index) {
   }
@@ -239,11 +246,11 @@ public:
 };
 #endif
 
-uint64_t g_cnt[N_TH][64];
-uint64_t g_tmp[N_TH];
-uint64_t g_hit[N_TH][64];
-uint64_t prev_cnt[N_TH];
-uint64_t prev_hit[N_TH];
+uint64_t g_cnt[N_CORE][64];
+uint64_t g_tmp[N_CORE];
+uint64_t g_hit[N_CORE][64];
+uint64_t prev_cnt[N_CORE];
+uint64_t prev_hit[N_CORE];
 bool warmup;
 
 template<class T>
@@ -303,13 +310,13 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   Genr genr(i_th);
   int n_done = 0;
   uint64_t tmp = 0;
-  co_t co[N_CORO];
+  co_t co[N_CTX];
 
-  for (int i_coro=0; i_coro<N_CORO; i_coro++) {
+  for (int i_coro=0; i_coro<N_CTX; i_coro++) {
     co[i_coro].done = false;
     co[i_coro].i_th = i_th;
     co[i_coro].i_coro = i_coro;
-    co[i_coro].index = i_coro * N_ITEM / N_CORO;
+    co[i_coro].index = i_coro * N_ITEM / N_CTX;
   }
   while (1) {
     if (*begin)
@@ -318,7 +325,7 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
   }
 
   do {
-    for (int i_coro=0; i_coro<N_CORO; i_coro++) {
+    for (int i_coro=0; i_coro<N_CTX; i_coro++) {
       if (!co[i_coro].done) {
 	coret_t coret = co_work<T>(&co[i_coro], i_th, quit, genr, tmp);
 	if (coret > 0) {
@@ -326,8 +333,34 @@ void worker(int i_th, volatile bool *begin, volatile bool *quit)
 	}
       }
     }
-  } while (n_done != N_CORO);
+  } while (n_done != N_CTX);
 
+  g_tmp[i_th] = tmp;
+}
+
+
+template<class Mmap>
+void worker_pthread(int i_th, volatile bool *begin, volatile bool *quit)
+{
+  setThreadAffinity(i_th % N_CORE);
+
+  Genr genr(i_th);
+  int n_done = 0;
+  uint64_t tmp = 0;
+  
+  while (1) {
+    if (*begin)
+      break;
+    _mm_pause();
+  }
+
+  while (*quit == false) {
+    if (!warmup)
+      g_cnt[i_th][0]++;
+    uint64_t index = genr.gen();
+    tmp += Mmap::read(NULL, index);
+  }
+  
   g_tmp[i_th] = tmp;
 }
 
@@ -338,8 +371,15 @@ void run_test() {
   std::vector<std::thread> thv;
   bool begin = false;
   bool quit = false;
-  for (auto i_th=0; i_th<N_TH; i_th++)
+#if USE_WORKER_PTHREAD
+  for (auto i_th=0; i_th<N_CORE*N_CTX; i_th++) {
+    thv.emplace_back(worker_pthread<T>, i_th, &begin, &quit);
+  }
+#else
+  for (auto i_th=0; i_th<N_CORE; i_th++) {
     thv.emplace_back(worker<T>, i_th, &begin, &quit);
+  }
+#endif
     
   begin = true;
   warmup = true;
@@ -355,7 +395,7 @@ void run_test() {
     sleep(1);
     uint64_t sum = 0;
     uint64_t hit = 0;
-    for (auto i_th=0; i_th<N_TH; i_th++) {
+    for (auto i_th=0; i_th<N_CORE; i_th++) {
       uint64_t cur_cnt = g_cnt[i_th][0];
       uint64_t cur_hit = g_hit[i_th][0];
       sum += cur_cnt - prev_cnt[i_th];
@@ -374,7 +414,7 @@ void run_test() {
   uint64_t sum = 0;
   uint64_t tmp = 0;
   uint64_t hit = 0;
-  for (auto i_th=0; i_th<N_TH; i_th++) {
+  for (auto i_th=0; i_th<N_CORE; i_th++) {
     sum += g_cnt[i_th][0];
     tmp += g_tmp[i_th];
     hit += g_hit[i_th][0];
@@ -397,8 +437,8 @@ void run_test() {
 int
 main(int argc, char **argv)
 {
-  std::cout << " N_TH = " << N_TH;
-  std::cout << " N_CORO = " << N_CORO;
+  std::cout << " N_CORE = " << N_CORE;
+  std::cout << " N_CTX = " << N_CTX;
   if (URAND)
     std::cout << " URAND = " << URAND;
   else

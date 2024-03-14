@@ -28,5 +28,6 @@
 #define TIME_SEC (7)
 #endif
 
+#define USE_WORKER_PTHREAD (0)
 
 #endif // __CONFIG_H__

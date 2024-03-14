@@ -21,7 +21,6 @@
 
 #define BLKSZ (4096)
 
-#define N_CORE (N_TH)
 #define NQ (N_CORE+1)
 #define QD (1024)
 #define AQD (8)

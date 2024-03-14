@@ -31,8 +31,8 @@ find_package(fmt)
 
 add_definitions("-DENABLE_S3FIFO=1")
 
-if (DEFINED N_TH)
-  add_definitions("-DN_TH=${N_TH}")
+if (DEFINED N_CORE)
+  add_definitions("-DN_CORE=${N_CORE}")
 endif()
 
 if (DEFINED URAND)
