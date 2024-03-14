@@ -17,7 +17,14 @@ typedef uint64_t index_t;
 #include "nvme.h"
 #include "config.h"
 
+#if USE_WORKER_PTHREAD
+#define N_CTX (1)
+#define N_TH (N_CTX * N_CORE)
+#else
 #define N_CTX (512)
+#define N_TH (N_CORE)
+#endif
+
 
 //#define CHASE (1)
 
@@ -246,11 +253,11 @@ public:
 };
 #endif
 
-uint64_t g_cnt[N_CORE][64];
-uint64_t g_tmp[N_CORE];
-uint64_t g_hit[N_CORE][64];
-uint64_t prev_cnt[N_CORE];
-uint64_t prev_hit[N_CORE];
+uint64_t g_cnt[N_TH][64];
+uint64_t g_tmp[N_TH];
+uint64_t g_hit[N_TH][64];
+uint64_t prev_cnt[N_TH];
+uint64_t prev_hit[N_TH];
 bool warmup;
 
 template<class T>
@@ -351,7 +358,7 @@ void worker_pthread(int i_th, volatile bool *begin, volatile bool *quit)
   while (1) {
     if (*begin)
       break;
-    _mm_pause();
+    sched_yield();
   }
 
   while (*quit == false) {
@@ -372,11 +379,11 @@ void run_test() {
   bool begin = false;
   bool quit = false;
 #if USE_WORKER_PTHREAD
-  for (auto i_th=0; i_th<N_CORE*N_CTX; i_th++) {
+  for (auto i_th=0; i_th<N_TH; i_th++) {
     thv.emplace_back(worker_pthread<T>, i_th, &begin, &quit);
   }
 #else
-  for (auto i_th=0; i_th<N_CORE; i_th++) {
+  for (auto i_th=0; i_th<N_TH; i_th++) {
     thv.emplace_back(worker<T>, i_th, &begin, &quit);
   }
 #endif
@@ -395,7 +402,7 @@ void run_test() {
     sleep(1);
     uint64_t sum = 0;
     uint64_t hit = 0;
-    for (auto i_th=0; i_th<N_CORE; i_th++) {
+    for (auto i_th=0; i_th<N_TH; i_th++) {
       uint64_t cur_cnt = g_cnt[i_th][0];
       uint64_t cur_hit = g_hit[i_th][0];
       sum += cur_cnt - prev_cnt[i_th];
@@ -414,7 +421,7 @@ void run_test() {
   uint64_t sum = 0;
   uint64_t tmp = 0;
   uint64_t hit = 0;
-  for (auto i_th=0; i_th<N_CORE; i_th++) {
+  for (auto i_th=0; i_th<N_TH; i_th++) {
     sum += g_cnt[i_th][0];
     tmp += g_tmp[i_th];
     hit += g_hit[i_th][0];
