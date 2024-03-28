@@ -18,16 +18,17 @@
 
 //#define ITEM_SIZE (64ULL)
 #define ITEM_SIZE (512ULL) // should be <= 512
+//#define N_ITEM (1024ULL*1024*32)
 #define N_ITEM (1024ULL*1024*32)
 
 #if 1 // long exec
 #define WARMUP_SEC (60)
 #define TIME_SEC (180)
 #else // short exec
-#define WARMUP_SEC (3)
-#define TIME_SEC (7)
+#define WARMUP_SEC (10)
+#define TIME_SEC (30)
 #endif
 
-#define USE_WORKER_PTHREAD (0)
+#define USE_WORKER_PTHREAD (1)
 
 #endif // __CONFIG_H__

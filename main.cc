@@ -258,7 +258,7 @@ uint64_t g_tmp[N_TH];
 uint64_t g_hit[N_TH][64];
 uint64_t prev_cnt[N_TH];
 uint64_t prev_hit[N_TH];
-bool warmup;
+volatile bool warmup;
 
 template<class T>
 inline coret_t co_work(co_t *co, int i_th, volatile bool *quit, Genr &genr, uint64_t &tmp) {
@@ -354,7 +354,7 @@ void worker_pthread(int i_th, volatile bool *begin, volatile bool *quit)
   Genr genr(i_th);
   int n_done = 0;
   uint64_t tmp = 0;
-  
+
   while (1) {
     if (*begin)
       break;
